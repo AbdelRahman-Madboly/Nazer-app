@@ -1,0 +1,20 @@
+import 'package:flutter/material.dart';
+
+class PaymentSuccessScreen extends StatelessWidget {
+  final String violationId;
+  const PaymentSuccessScreen({super.key, required this.violationId});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Payment Success')),
+      body: Center(
+        child: Text(
+          'Payment Success\n$violationId',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 18),
+        ),
+      ),
+    );
+  }
+}
