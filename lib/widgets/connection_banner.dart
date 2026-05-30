@@ -1,10 +1,6 @@
 // lib/widgets/connection_banner.dart
 // Phase 6B: Reads real BLE state from DeviceProvider.
-// Design reference: ConnectionBanner.tsx
-//   - disconnected → blue banner with "Connect" button (taps startScan)
-//   - scanning     → amber banner + spinner
-//   - connecting   → info-blue banner + spinner
-//   - connected    → returns null (no banner shown)
+// Phase 6H fix: replaced deprecated withOpacity() → withValues(alpha:)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -51,18 +47,17 @@ class _DisconnectedBanner extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       width: double.infinity,
-      color: AppColors.info.withOpacity(0.15),
+      color: AppColors.info.withValues(alpha: 0.15),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       child: Row(
         children: [
-          const Icon(Icons.bluetooth_disabled,
-              color: AppColors.info, size: 20),
+          const Icon(Icons.bluetooth_disabled, color: AppColors.info, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Device Not Connected',
                   style: TextStyle(
                     fontSize: 13,
@@ -70,7 +65,7 @@ class _DisconnectedBanner extends StatelessWidget {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                Text(
+                const Text(
                   'Tap to connect your NAZER device',
                   style: TextStyle(
                     fontSize: 11,
@@ -86,8 +81,7 @@ class _DisconnectedBanner extends StatelessWidget {
             style: TextButton.styleFrom(
               backgroundColor: AppColors.info,
               foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6)),
               minimumSize: Size.zero,
@@ -119,7 +113,7 @@ class _SpinnerBanner extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       width: double.infinity,
-      color: color.withOpacity(0.15),
+      color: color.withValues(alpha: 0.15),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       child: Row(
         children: [
@@ -145,7 +139,7 @@ class _SpinnerBanner extends StatelessWidget {
               ),
               Text(
                 subLabel,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 11,
                   color: AppColors.textSecondary,
                 ),
