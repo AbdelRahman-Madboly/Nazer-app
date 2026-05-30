@@ -1,3 +1,11 @@
+// android/app/build.gradle.kts
+// Phase 6D: Added coreLibraryDesugaring required by flutter_local_notifications.
+//
+// FIX: Correct Maven coordinate is com.android.tools:desugar_jdk_libs:2.1.4
+//      (three colon-separated parts: group:artifact:version)
+//      The broken string "com.android.tools.build:desugaring:2.0.4" is a
+//      non-existent artifact and causes checkDebugAarMetadata to fail.
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -10,17 +18,19 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        // REQUIRED for flutter_local_notifications
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "1.8"
     }
 
     defaultConfig {
-        applicationId = "com.example.nazer_app"
-        minSdk = 29
+        applicationId = "com.example.nazer_app"   // TODO Phase 6H: change to com.nazer.app
+        minSdk = 29                                // hardcoded — BLE requires API 29+
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -35,4 +45,10 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // REQUIRED for flutter_local_notifications
+    // group:artifact:version — all three parts are mandatory
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
