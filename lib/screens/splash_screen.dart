@@ -1,3 +1,6 @@
+// lib/screens/splash_screen.dart
+// Phase 6H fix: replaced deprecated withOpacity() → withValues(alpha:)
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
@@ -24,7 +27,6 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
 
-    // Navigate to Home after 2.5 seconds
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) context.go('/home');
     });
@@ -76,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen>
                 height: 32,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.primary.withOpacity(0.6),
+                  color: AppColors.primary.withValues(alpha: 0.6),
                 ),
               ),
             ],
