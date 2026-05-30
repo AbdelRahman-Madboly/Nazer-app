@@ -1,5 +1,6 @@
 // lib/screens/home_screen.dart
 // Phase 6C: Design-faithful HomeScreen matching HomeScreen.tsx.
+// Phase 6D: Recent Activity section wired to ViolationsProvider (real data).
 //
 // Layout:
 //  - ConnectionBanner (top)
@@ -8,13 +9,16 @@
 //  - 2×2 StatCard grid: Speed, Limit, Battery, GSM Signal
 //  - GPS row: satellite count + HDOP quality label
 //  - Stationary badge (shown when is_stationary == true)
-//  - Recent Activity section (static placeholder items, styled per TSX)
-//  - All data from DeviceProvider.lastTelemetry — shows "--" when null
+//  - Recent Activity section — last 3 violations from ViolationsProvider
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../models/violation.dart';
 import '../providers/device_provider.dart';
+import '../providers/violations_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/speed_gauge.dart';
@@ -41,10 +45,10 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.bgDark,
       body: Column(
         children: [
-          // ── BLE status banner ──────────────────────────────────────────────
+          // ── BLE status banner ────────────────────────────────────────────────
           const ConnectionBanner(),
 
-          // ── Scrollable content ─────────────────────────────────────────────
+          // ── Scrollable content ───────────────────────────────────────────────
           Expanded(
             child: SafeArea(
               top: false,
@@ -59,12 +63,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         const SizedBox(height: 16),
 
-                        // ── Header ───────────────────────────────────────────
+                        // ── Header ─────────────────────────────────────────────
                         _Header(deviceId: device.state.deviceId),
 
                         const SizedBox(height: 20),
 
-                        // ── Speed gauge (hero) ───────────────────────────────
+                        // ── Speed gauge (hero) ─────────────────────────────────
                         Center(
                           child: SpeedGauge(
                             speed: tel?.speed ?? 0,
@@ -74,27 +78,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         const SizedBox(height: 20),
 
-                        // ── Stationary badge ─────────────────────────────────
+                        // ── Stationary badge ───────────────────────────────────
                         if (tel != null && tel.isStationary)
                           _StationaryBadge(),
 
                         if (tel != null && tel.isStationary)
                           const SizedBox(height: 12),
 
-                        // ── 2×2 stats grid ───────────────────────────────────
+                        // ── 2×2 stats grid ─────────────────────────────────────
                         _StatsGrid(tel: tel),
 
                         const SizedBox(height: 16),
 
-                        // ── GPS row ──────────────────────────────────────────
+                        // ── GPS row ────────────────────────────────────────────
                         _GpsRow(tel: tel),
 
                         const SizedBox(height: 24),
 
-                        // ── Recent Activity ──────────────────────────────────
+                        // ── Recent Activity (wired to ViolationsProvider) ──────
                         _SectionLabel('Recent Activity'),
                         const SizedBox(height: 12),
-                        _RecentActivityList(),
+                        // Consumer keeps this section reactive independently of
+                        // the outer DeviceProvider consumer.
+                        Consumer<ViolationsProvider>(
+                          builder: (ctx, violations, _) =>
+                              _RecentActivityList(violations: violations),
+                        ),
 
                         const SizedBox(height: 32),
                       ],
@@ -247,8 +256,7 @@ class _StatsGrid extends StatelessWidget {
     );
   }
 
-  /// Map raw GSM RSSI (0–31 or -113..0 dBm) to 0–5 bars.
-  /// firmware sends gsm_signal as raw RSSI 0–31.
+  /// Map raw GSM RSSI (0–31) to 0–5 bars.
   static int _gsmToBars(int rssi) {
     if (rssi <= 0) return 0;
     if (rssi <= 5) return 1;
@@ -290,47 +298,34 @@ class _GpsRow extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
-          const Icon(Icons.satellite_alt_rounded,
-              color: AppColors.info, size: 22),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('GPS',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
-                  )),
-              Text(
-                '$satLabel satellites',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          Icon(Icons.satellite_alt_rounded,
+              color: AppColors.info, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            '$satLabel satellites',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
           const Spacer(),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: hdopColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: hdopColor.withValues(alpha: 0.4)),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              hdopLabel,
+              'GPS: $hdopLabel',
               style: TextStyle(
                 color: hdopColor,
                 fontSize: 12,
@@ -344,40 +339,152 @@ class _GpsRow extends StatelessWidget {
   }
 }
 
-// ── Recent Activity (static placeholder matching TSX design) ──────────────────
+// ── Recent Activity — PHASE 6D: wired to ViolationsProvider ──────────────────
 
 class _RecentActivityList extends StatelessWidget {
+  final ViolationsProvider violations;
+  const _RecentActivityList({required this.violations});
+
   @override
   Widget build(BuildContext context) {
+    final recent = violations.violations.take(3).toList();
+
+    if (recent.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle_outline_rounded,
+                color: AppColors.success, size: 22),
+            const SizedBox(width: 12),
+            Text(
+              'No recent violations',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
-      children: const [
-        _ActivityItem(
-          iconBg: Color(0x33EF4444),
-          icon: Icons.warning_amber_rounded,
-          iconColor: AppColors.danger,
-          title: 'Speed Violation',
-          subtitle: '95 km/h in 60 km/h zone',
-          time: '10:30 AM  •  \$10.00',
+      children: recent
+          .map((v) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ViolationActivityItem(
+                  violation: v,
+                  onTap: () =>
+                      context.push('/violations/${v.violationId}'),
+                ),
+              ))
+          .toList(),
+    );
+  }
+}
+
+class _ViolationActivityItem extends StatelessWidget {
+  final ViolationData violation;
+  final VoidCallback onTap;
+
+  const _ViolationActivityItem({
+    required this.violation,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final timeStr =
+        DateFormat('h:mm a  •  MMM d').format(violation.timestamp);
+    final fine = '${violation.fineAmount.toStringAsFixed(0)} EGP';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
         ),
-        SizedBox(height: 8),
-        _ActivityItem(
-          iconBg: Color(0x2222C55E),
-          icon: Icons.star_rounded,
-          iconColor: AppColors.success,
-          title: 'Safe Driving Streak',
-          subtitle: '7 days without violations',
-          time: 'Keep it up!',
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Icon circle
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.danger.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.warning_amber_rounded,
+                  color: AppColors.danger, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Speed Violation',
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${violation.speed.toStringAsFixed(0)} km/h'
+                    ' in ${violation.speedLimit} km/h zone',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$timeStr  •  $fine',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Paid / unpaid indicator
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: violation.isPaid
+                    ? AppColors.success.withValues(alpha: 0.12)
+                    : AppColors.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                violation.isPaid ? 'PAID' : 'UNPAID',
+                style: TextStyle(
+                  color: violation.isPaid
+                      ? AppColors.success
+                      : AppColors.warning,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ],
         ),
-        SizedBox(height: 8),
-        _ActivityItem(
-          iconBg: Color(0x223B82F6),
-          icon: Icons.bluetooth_rounded,
-          iconColor: AppColors.info,
-          title: 'Device Connected',
-          subtitle: 'NAZER_0B49EFD0 paired successfully',
-          time: 'Yesterday',
-        ),
-      ],
+      ),
     );
   }
 }
@@ -541,92 +648,13 @@ class _SignalBars extends StatelessWidget {
               height: 8 + i * 3.0,
               margin: const EdgeInsets.only(right: 3),
               decoration: BoxDecoration(
-                color: active
-                    ? AppColors.info
-                    : AppColors.bgSurface,
+                color: active ? AppColors.info : AppColors.bgSurface,
                 borderRadius: BorderRadius.circular(2),
               ),
             );
           }),
         ),
       ],
-    );
-  }
-}
-
-class _ActivityItem extends StatelessWidget {
-  final Color iconBg;
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final String time;
-
-  const _ActivityItem({
-    required this.iconBg,
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Icon circle
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconBg,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  time,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
