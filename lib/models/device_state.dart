@@ -1,14 +1,23 @@
-enum BleConnectionState { disconnected, scanning, connecting, connected }
+// lib/models/device_state.dart
+// Phase 6B: Added deviceId and speedLimit fields so DeviceProvider
+//           can surface them from telemetry payloads.
+
+enum BleConnectionState {
+  disconnected,
+  scanning,
+  connecting,
+  connected,
+}
 
 class DeviceState {
   final BleConnectionState connectionState;
   final String? deviceId;
-  final String? deviceName;
+  final int speedLimit;
 
   const DeviceState({
     this.connectionState = BleConnectionState.disconnected,
     this.deviceId,
-    this.deviceName,
+    this.speedLimit = 80,
   });
 
   bool get isConnected => connectionState == BleConnectionState.connected;
@@ -16,12 +25,12 @@ class DeviceState {
   DeviceState copyWith({
     BleConnectionState? connectionState,
     String? deviceId,
-    String? deviceName,
+    int? speedLimit,
   }) {
     return DeviceState(
       connectionState: connectionState ?? this.connectionState,
       deviceId: deviceId ?? this.deviceId,
-      deviceName: deviceName ?? this.deviceName,
+      speedLimit: speedLimit ?? this.speedLimit,
     );
   }
 }
