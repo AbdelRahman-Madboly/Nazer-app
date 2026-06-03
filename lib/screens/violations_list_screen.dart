@@ -43,9 +43,9 @@ class _ViolationsListScreenState extends State<ViolationsListScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   // ── Header ───────────────────────────────────────────────
-                  SliverToBoxAdapter(
+                  const SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                      padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
                       child: Text(
                         'Violations',
                         style: TextStyle(
@@ -318,7 +318,7 @@ class _ViolationCard extends StatelessWidget {
                     color: AppColors.danger.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.warning_rounded,
+                  child: const Icon(Icons.warning_rounded,
                       color: AppColors.danger, size: 22),
                 ),
                 const SizedBox(width: 12),
@@ -327,7 +327,7 @@ class _ViolationCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Speed Violation',
                         style: TextStyle(
                           color: AppColors.textPrimary,
@@ -339,7 +339,7 @@ class _ViolationCard extends StatelessWidget {
                       Text(
                         '${violation.speed.toStringAsFixed(0)} km/h'
                         ' in ${violation.speedLimit} km/h zone',
-                        style: TextStyle(
+                        style: const TextStyle(
                             color: AppColors.textSecondary, fontSize: 13),
                       ),
                     ],
@@ -348,7 +348,7 @@ class _ViolationCard extends StatelessWidget {
                 // Fine amount
                 Text(
                   '${violation.fineAmount.toStringAsFixed(0)} EGP',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -362,12 +362,12 @@ class _ViolationCard extends StatelessWidget {
             // Date / time row
             Row(
               children: [
-                Icon(Icons.access_time_rounded,
+                const Icon(Icons.access_time_rounded,
                     size: 13, color: AppColors.textMuted),
                 const SizedBox(width: 4),
                 Text(
                   '$dateStr • $timeStr',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                 ),
               ],
             ),
@@ -420,7 +420,7 @@ class _StatusBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isPaid) ...[
-            Icon(Icons.check_circle_outline,
+            const Icon(Icons.check_circle_outline,
                 size: 12, color: AppColors.success),
             const SizedBox(width: 4),
           ],
@@ -467,7 +467,7 @@ class _EmptyState extends StatelessWidget {
                   : isPaidFilter
                       ? 'No paid violations yet'
                       : 'No violations recorded',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -479,7 +479,7 @@ class _EmptyState extends StatelessWidget {
               isUnpaidFilter
                   ? 'Great job keeping it within the limit.'
                   : 'Keep up the safe driving!',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ],

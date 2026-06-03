@@ -34,7 +34,7 @@ class ViolationDetailScreen extends StatelessWidget {
           leading: const BackButton(color: Colors.white),
           title: const Text('Violation'),
         ),
-        body: Center(
+        body: const Center(
           child: Text(
             'Violation not found',
             style: TextStyle(color: AppColors.textSecondary),
@@ -94,7 +94,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.bgDark,
         border: Border(
           bottom: BorderSide(color: AppColors.border),
@@ -103,14 +103,14 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
+            icon: const Icon(Icons.arrow_back_ios_new_rounded,
                 color: AppColors.textPrimary, size: 20),
             onPressed: () => context.pop(),
           ),
           Expanded(
             child: Text(
               'Violation #${_shortId(violationId)}',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -144,13 +144,13 @@ class _MapView extends StatelessWidget {
       return Container(
         height: 210,
         color: AppColors.bgCard,
-        child: Center(
+        child: const Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.location_off_rounded,
                   color: AppColors.textMuted, size: 36),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 'Location unavailable',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 13),
@@ -290,7 +290,7 @@ class _DetailCard extends StatelessWidget {
                   color: AppColors.danger.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.warning_rounded,
+                child: const Icon(Icons.warning_rounded,
                     color: AppColors.danger, size: 26),
               ),
               const SizedBox(width: 12),
@@ -298,7 +298,7 @@ class _DetailCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Speed Violation',
                       style: TextStyle(
                         color: AppColors.textPrimary,
@@ -335,29 +335,29 @@ class _DetailCard extends StatelessWidget {
           _DataRow(
             label: 'Fine Amount',
             value: '${violation.fineAmount.toStringAsFixed(0)} EGP',
-            valueStyle: TextStyle(
+            valueStyle: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
           ),
 
-          Divider(color: AppColors.border, height: 28),
+          const Divider(color: AppColors.border, height: 28),
 
           // Timestamp row
           Row(
             children: [
-              Icon(Icons.access_time_rounded,
+              const Icon(Icons.access_time_rounded,
                   size: 15, color: AppColors.textMuted),
               const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Date & Time',
+                  const Text('Date & Time',
                       style: TextStyle(
                           color: AppColors.textMuted, fontSize: 12)),
                   Text('$dateStr • $timeStr',
-                      style: TextStyle(
+                      style: const TextStyle(
                           color: AppColors.textSecondary, fontSize: 13)),
                 ],
               ),
@@ -369,19 +369,19 @@ class _DetailCard extends StatelessWidget {
           // Coordinates row
           Row(
             children: [
-              Icon(Icons.location_on_outlined,
+              const Icon(Icons.location_on_outlined,
                   size: 15, color: AppColors.textMuted),
               const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Coordinates',
+                  const Text('Coordinates',
                       style: TextStyle(
                           color: AppColors.textMuted, fontSize: 12)),
                   Text(
                     '${violation.latitude.toStringAsFixed(4)}°N, '
                     '${violation.longitude.toStringAsFixed(4)}°E',
-                    style: TextStyle(
+                    style: const TextStyle(
                         color: AppColors.textSecondary, fontSize: 13),
                   ),
                 ],
@@ -415,7 +415,7 @@ class _DataRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label,
-              style: TextStyle(
+              style: const TextStyle(
                   color: AppColors.textSecondary, fontSize: 14)),
           Text(
             value,
@@ -475,12 +475,12 @@ class _ActionArea extends StatelessWidget {
           border: Border.all(color: AppColors.success),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
+        child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.check_circle_rounded,
                 color: AppColors.success, size: 22),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Text(
               'This fine has been paid',
               style: TextStyle(
@@ -500,7 +500,7 @@ class _ActionArea extends StatelessWidget {
           child: OutlinedButton(
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textSecondary,
-              side: BorderSide(color: AppColors.border),
+              side: const BorderSide(color: AppColors.border),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),

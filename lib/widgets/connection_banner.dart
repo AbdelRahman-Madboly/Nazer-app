@@ -53,11 +53,11 @@ class _DisconnectedBanner extends StatelessWidget {
         children: [
           const Icon(Icons.bluetooth_disabled, color: AppColors.info, size: 20),
           const SizedBox(width: 10),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Device Not Connected',
                   style: TextStyle(
                     fontSize: 13,
@@ -65,7 +65,7 @@ class _DisconnectedBanner extends StatelessWidget {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const Text(
+                Text(
                   'Tap to connect your NAZER device',
                   style: TextStyle(
                     fontSize: 11,

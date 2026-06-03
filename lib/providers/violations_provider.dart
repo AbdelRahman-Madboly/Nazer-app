@@ -1,5 +1,6 @@
 // lib/providers/violations_provider.dart
 // Phase 6D: Full implementation — Hive persistence + notification callback.
+// Phase 6E: Added clearAll().
 //
 // NotificationService (notification_service.dart) is injected via
 // [onViolationAdded] callback to avoid a hard dependency on the notification
@@ -57,6 +58,13 @@ class ViolationsProvider extends ChangeNotifier {
     await _storage.markPaid(violationId);
     await _loadInternal();
     debugPrint('[ViolationsProvider] Marked paid: $violationId');
+  }
+
+  /// Delete all violation records (debug / settings action).
+  Future<void> clearAll() async {
+    await _storage.clearAll();
+    await _loadInternal();
+    debugPrint('[ViolationsProvider] All violations cleared');
   }
 
   // ── Private ────────────────────────────────────────────────────────────────

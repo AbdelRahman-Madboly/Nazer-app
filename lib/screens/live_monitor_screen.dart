@@ -1,14 +1,8 @@
 // lib/screens/live_monitor_screen.dart
-// Phase 6C: Full LiveMonitorScreen matching LiveMonitorScreen.tsx.
-//
-// Layout:
-//  - ConnectionBanner
-//  - SpeedGauge (centred, hero)
-//  - Pulsing red overlay (AnimatedOpacity 500ms) when speed > limit
-//  - Bottom info strip: speed limit label, stationary badge, last-update time
-//  - GPS info row: satellites + accuracy (from hdop)
-//  - Trip info row: static placeholder (distance, duration, avg speed)
-//  - Consumer<DeviceProvider> — rebuilds on every telemetry update
+// Phase 6H: Trip info card now shows real computed values from DeviceProvider.
+//   - Distance: Haversine-accumulated km (tripDistanceKm)
+//   - Max Speed: highest speed seen this session (maxSpeedKmh)
+//   - Duration: elapsed time since first non-stationary telemetry (tripDuration)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -27,7 +21,6 @@ class LiveMonitorScreen extends StatefulWidget {
 
 class _LiveMonitorScreenState extends State<LiveMonitorScreen>
     with SingleTickerProviderStateMixin {
-  // Pulsing overlay controller for over-limit state
   late AnimationController _pulseController;
   late Animation<double> _pulseAnim;
 
@@ -56,10 +49,7 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
       backgroundColor: AppColors.bgDark,
       body: Column(
         children: [
-          // ── BLE status banner ──────────────────────────────────────────────
           const ConnectionBanner(),
-
-          // ── Main content ───────────────────────────────────────────────────
           Expanded(
             child: Consumer<DeviceProvider>(
               builder: (context, device, _) {
@@ -71,7 +61,6 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
 
                 return Stack(
                   children: [
-                    // ── Scrollable content ───────────────────────────────────
                     SafeArea(
                       top: false,
                       child: SingleChildScrollView(
@@ -80,7 +69,6 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
                           children: [
                             const SizedBox(height: 24),
 
-                            // ── Hero: speed gauge ───────────────────────────
                             Center(
                               child: SpeedGauge(
                                 speed: speed,
@@ -90,7 +78,6 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
 
                             const SizedBox(height: 24),
 
-                            // ── Status card ─────────────────────────────────
                             _StatusCard(
                               speed: speed,
                               speedLimit: speedLimit,
@@ -100,7 +87,6 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
 
                             const SizedBox(height: 16),
 
-                            // ── GPS info row ─────────────────────────────────
                             _GpsInfoRow(
                               satellites: tel?.satellites ?? 0,
                               hdop: tel?.hdop ?? 0.0,
@@ -109,12 +95,15 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
 
                             const SizedBox(height: 16),
 
-                            // ── Trip info (static placeholder) ───────────────
-                            _TripInfoCard(),
+                            // ── Trip info — real data from DeviceProvider ──────
+                            _TripInfoCard(
+                              distanceKm: device.tripDistanceKm,
+                              maxSpeedKmh: device.maxSpeedKmh,
+                              tripDuration: device.tripDuration,
+                            ),
 
                             const SizedBox(height: 16),
 
-                            // ── Last update timestamp ────────────────────────
                             _LastUpdateRow(timestamp: tel?.timestamp),
 
                             const SizedBox(height: 32),
@@ -123,7 +112,6 @@ class _LiveMonitorScreenState extends State<LiveMonitorScreen>
                       ),
                     ),
 
-                    // ── Pulsing red overlay (over limit) ─────────────────────
                     if (isOverLimit)
                       IgnorePointer(
                         child: AnimatedBuilder(
@@ -196,7 +184,6 @@ class _StatusCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Speed
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -226,8 +213,6 @@ class _StatusCard extends StatelessWidget {
                   ),
                 ],
               ),
-
-              // Speed limit
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -262,7 +247,6 @@ class _StatusCard extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Status row
           Row(
             children: [
               Icon(statusIcon, color: statusColor, size: 16),
@@ -272,26 +256,12 @@ class _StatusCard extends StatelessWidget {
                 style: TextStyle(
                   color: statusColor,
                   fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-
-              if (isOverLimit) ...[
-                const Spacer(),
-                Text(
-                  '+${(speed - speedLimit).toStringAsFixed(0)} km/h over',
-                  style: const TextStyle(
-                    color: AppColors.danger,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
             ],
           ),
 
-          // Over-limit progress bar
           if (isOverLimit) ...[
             const SizedBox(height: 10),
             ClipRRect(
@@ -345,7 +315,8 @@ class _GpsInfoRow extends StatelessWidget {
       accuracyColor = AppColors.danger;
     }
 
-    final approxAccuracy = hasFix ? '±${(hdop * 2.5).toStringAsFixed(1)}m' : '--';
+    final approxAccuracy =
+        hasFix ? '±${(hdop * 2.5).toStringAsFixed(1)}m' : '--';
 
     return Row(
       children: [
@@ -440,11 +411,31 @@ class _InfoTile extends StatelessWidget {
   }
 }
 
-// ── Trip info card (static placeholder matching TSX) ──────────────────────────
+// ── Trip info card ────────────────────────────────────────────────────────────
 
 class _TripInfoCard extends StatelessWidget {
+  final double distanceKm;
+  final double maxSpeedKmh;
+  final Duration? tripDuration;
+
+  const _TripInfoCard({
+    required this.distanceKm,
+    required this.maxSpeedKmh,
+    required this.tripDuration,
+  });
+
+  String _formatDuration(Duration? d) {
+    if (d == null) return '—';
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasData = tripDuration != null || distanceKm > 0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -456,7 +447,7 @@ class _TripInfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Trip Information',
+            'TRIP INFORMATION',
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
@@ -467,12 +458,25 @@ class _TripInfoCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: const [
-              _TripStat(label: 'Distance', value: '—'),
-              _TripDivider(),
-              _TripStat(label: 'Duration', value: '—'),
-              _TripDivider(),
-              _TripStat(label: 'Avg Speed', value: '—'),
+            children: [
+              _TripStat(
+                label: 'Distance',
+                value: hasData
+                    ? '${distanceKm.toStringAsFixed(2)} km'
+                    : '—',
+              ),
+              const _TripDivider(),
+              _TripStat(
+                label: 'Duration',
+                value: _formatDuration(tripDuration),
+              ),
+              const _TripDivider(),
+              _TripStat(
+                label: 'Max Speed',
+                value: hasData
+                    ? '${maxSpeedKmh.toStringAsFixed(0)} km/h'
+                    : '—',
+              ),
             ],
           ),
         ],
@@ -544,7 +548,7 @@ class _LastUpdateRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
+        const Icon(
           Icons.access_time_rounded,
           color: AppColors.textSecondary,
           size: 14,

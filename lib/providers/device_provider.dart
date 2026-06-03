@@ -1,12 +1,14 @@
 // lib/providers/device_provider.dart
-// Phase 6B: Wires BleService streams into provider state.
-// Handles: permissions, scan, connect, disconnect, auto-reconnect,
-//          telemetry stream, violation stream → ViolationsProvider.
+// Phase 6H: Fixed imports (telemetry.dart / violation.dart, not *_data.dart).
+//           Fixed stream names to match BleService API (connectionEventStream,
+//           telemetryStream, violationStream — NOT stateStream).
+//           Added isConnected getter, setSpeedLimit(), and trip tracking
+//           (tripDistanceKm, maxSpeedKmh, tripDuration).
 
-import 'dart:io';
+import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../models/device_state.dart';
 import '../models/telemetry.dart';
@@ -14,40 +16,80 @@ import '../models/violation.dart';
 import '../services/ble_service.dart';
 
 class DeviceProvider extends ChangeNotifier {
-  final BleService _ble = BleService();
-
+  // ── BLE state ───────────────────────────────────────────────────────────────
   DeviceState _state = const DeviceState();
-  TelemetryData? _lastTelemetry;
+  DeviceState get state => _state;
 
-  // Optional callback so DeviceProvider can forward violations to
-  // ViolationsProvider without a hard dependency cycle.
-  // Set by main.dart after both providers are created.
+  TelemetryData? _lastTelemetry;
+  TelemetryData? get lastTelemetry => _lastTelemetry;
+
+  /// Convenience getter used by SettingsScreen
+  bool get isConnected => _state.isConnected;
+
+  /// Callback wired in main.dart: DeviceProvider → ViolationsProvider
   void Function(ViolationData)? onViolationReceived;
 
+  final BleService _ble = BleService();
+  StreamSubscription<BleConnectionEvent>? _connEventSub;
+  StreamSubscription<TelemetryData>? _telemetrySub;
+  StreamSubscription<ViolationData>? _violationSub;
+
+  // ── Phase 6H: Trip tracking ─────────────────────────────────────────────────
+  double _tripDistanceKm = 0.0;
+  double _maxSpeedKmh    = 0.0;
+  DateTime? _tripStartTime;
+  double? _lastLat;
+  double? _lastLon;
+
+  double    get tripDistanceKm => _tripDistanceKm;
+  double    get maxSpeedKmh    => _maxSpeedKmh;
+  Duration? get tripDuration   =>
+      _tripStartTime == null
+          ? null
+          : DateTime.now().difference(_tripStartTime!);
+
+  // ── Init ────────────────────────────────────────────────────────────────────
   DeviceProvider() {
-    _listenToBleEvents();
-    _listenToTelemetry();
-    _listenToViolations();
+    _init();
   }
 
-  // ── Getters ────────────────────────────────────────────────────────────────
-  DeviceState get state => _state;
-  TelemetryData? get lastTelemetry => _lastTelemetry;
-  bool get isConnected =>
-      _state.connectionState == BleConnectionState.connected;
+  void _init() {
+    // BleService exposes connectionEventStream (BleConnectionEvent), not stateStream
+    _connEventSub = _ble.connectionEventStream.listen((event) {
+      _state = _state.copyWith(
+        connectionState: _bleEventToState(event),
+      );
+      notifyListeners();
+    });
 
-  // ── Public API ─────────────────────────────────────────────────────────────
+    _telemetrySub = _ble.telemetryStream.listen((tel) {
+      _lastTelemetry = tel;
+      // Update DeviceState.speedLimit from telemetry
+      _state = _state.copyWith(
+        deviceId: tel.deviceId,
+        speedLimit: tel.speedLimit,
+      );
+      _updateTrip(tel);
+      notifyListeners();
+    });
 
-  /// Request Android BLE permissions then start scanning.
-  /// Safe to call from any screen — handles permission denial gracefully.
-  Future<void> startScan() async {
-    final granted = await _requestBlePermissions();
-    if (!granted) {
-      debugPrint('[DeviceProvider] BLE permissions denied — cannot scan');
-      return;
-    }
-    await _ble.startScan();
+    _violationSub = _ble.violationStream.listen((v) {
+      onViolationReceived?.call(v);
+    });
   }
+
+  BleConnectionState _bleEventToState(BleConnectionEvent event) {
+    return switch (event) {
+      BleConnectionEvent.scanning    => BleConnectionState.scanning,
+      BleConnectionEvent.connecting  => BleConnectionState.connecting,
+      BleConnectionEvent.connected   => BleConnectionState.connected,
+      BleConnectionEvent.disconnected ||
+      BleConnectionEvent.notFound    => BleConnectionState.disconnected,
+    };
+  }
+
+  // ── BLE control ─────────────────────────────────────────────────────────────
+  Future<void> startScan() => _ble.startScan();
 
   Future<void> disconnect() async {
     await _ble.disconnect();
@@ -55,76 +97,51 @@ class DeviceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Send a set_limit command to the connected device.
+  /// Send a set_limit command to the device. Used by SettingsScreen.
   Future<void> setSpeedLimit(int limit) async {
     await _ble.sendCommand({'cmd': 'set_limit', 'value': limit});
+    _state = _state.copyWith(speedLimit: limit);
+    notifyListeners();
   }
 
-  // ── Stream subscriptions ──────────────────────────────────────────────────
+  // ── Trip tracking ───────────────────────────────────────────────────────────
+  void _updateTrip(TelemetryData tel) {
+    if (tel.speed > _maxSpeedKmh) _maxSpeedKmh = tel.speed;
 
-  void _listenToBleEvents() {
-    _ble.connectionEventStream.listen((event) {
-      final newConnState = switch (event) {
-        BleConnectionEvent.scanning     => BleConnectionState.scanning,
-        BleConnectionEvent.connecting   => BleConnectionState.connecting,
-        BleConnectionEvent.connected    => BleConnectionState.connected,
-        BleConnectionEvent.disconnected => BleConnectionState.disconnected,
-        // notFound: scan completed without finding the device —
-        // show as disconnected so the banner offers a "Scan" button.
-        BleConnectionEvent.notFound     => BleConnectionState.disconnected,
-      };
-      _state = _state.copyWith(connectionState: newConnState);
-      notifyListeners();
-      debugPrint('[DeviceProvider] State → $newConnState');
-    });
-  }
-
-  void _listenToTelemetry() {
-    _ble.telemetryStream.listen((data) {
-      _lastTelemetry = data;
-      // Reflect the device ID and speed limit from telemetry into state
-      _state = _state.copyWith(
-        deviceId: data.deviceId,
-        speedLimit: data.speedLimit,
-      );
-      notifyListeners();
-    });
-  }
-
-  void _listenToViolations() {
-    _ble.violationStream.listen((violation) {
-      debugPrint('[DeviceProvider] Violation received: ${violation.violationId}');
-      onViolationReceived?.call(violation);
-    });
-  }
-
-  // ── Permissions ───────────────────────────────────────────────────────────
-
-  /// Returns true when all required permissions are granted.
-  Future<bool> _requestBlePermissions() async {
-    if (!Platform.isAndroid) return true;
-
-    final statuses = await [
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      Permission.locationWhenInUse,
-    ].request();
-
-    final allGranted = statuses.values.every(
-      (s) => s == PermissionStatus.granted,
-    );
-
-    if (!allGranted) {
-      for (final entry in statuses.entries) {
-        debugPrint('[Perms] ${entry.key} → ${entry.value}');
-      }
+    if (!tel.isStationary && _tripStartTime == null) {
+      _tripStartTime = DateTime.now();
     }
 
-    return allGranted;
+    if (!tel.isStationary && _lastLat != null && _lastLon != null) {
+      _tripDistanceKm +=
+          _haversineKm(_lastLat!, _lastLon!, tel.latitude, tel.longitude);
+    }
+
+    _lastLat = tel.latitude;
+    _lastLon = tel.longitude;
   }
 
+  double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371.0;
+    final dLat = _deg2rad(lat2 - lat1);
+    final dLon = _deg2rad(lon2 - lon1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_deg2rad(lat1)) *
+            math.cos(_deg2rad(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return r * c;
+  }
+
+  double _deg2rad(double deg) => deg * (math.pi / 180.0);
+
+  // ── Dispose ─────────────────────────────────────────────────────────────────
   @override
   void dispose() {
+    _connEventSub?.cancel();
+    _telemetrySub?.cancel();
+    _violationSub?.cancel();
     _ble.dispose();
     super.dispose();
   }

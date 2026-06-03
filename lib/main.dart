@@ -1,12 +1,7 @@
 // lib/main.dart
-// Phase 6D: Hive init + ViolationDataAdapter + NotificationService.
-//
-// Fixes vs original Phase 6D:
-//  1. PaymentMethodScreen route: removed unknown 'amount' param (screen only takes violationId).
-//     Pass id via query param as before; PaymentMethodScreen reads it from violationId.
-//  2. AppTheme.dark — called as AppTheme.dark() (it's a static method/getter returning
-//     ThemeData, not a ThemeData value itself). If it's a getter, call with no parens;
-//     if a method, call with (). Adjust below to match your app_theme.dart signature.
+// Phase 6H: Added ThemeProvider + light/dark theme wiring.
+//           Fixed payment/form and payment/success routes (were missing).
+//           applicationId changed to com.nazer.app in build.gradle.kts.
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +9,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/device_provider.dart';
+import 'providers/theme_provider.dart';
 import 'providers/violations_provider.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
@@ -27,6 +23,8 @@ import 'screens/violation_detail_screen.dart';
 import 'screens/driver_score_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/payment_method_screen.dart';
+import 'screens/payment_form_screen.dart';
+import 'screens/payment_success_screen.dart';
 import 'screens/splash_screen.dart';
 
 Future<void> main() async {
@@ -39,7 +37,11 @@ Future<void> main() async {
   // ── Notifications ───────────────────────────────────────────────────────────
   await NotificationService.instance.init();
 
-  runApp(const NazerApp());
+  // ── Theme (load saved preference before first frame) ────────────────────────
+  final themeProvider = ThemeProvider();
+  await themeProvider.load();
+
+  runApp(NazerApp(themeProvider: themeProvider));
 }
 
 // ── Router ────────────────────────────────────────────────────────────────────
@@ -54,40 +56,36 @@ final _router = GoRouter(
     ShellRoute(
       builder: (context, state, child) => _MainShell(child: child),
       routes: [
-        GoRoute(
-          path: '/home',
-          builder: (_, __) => const HomeScreen(),
-        ),
-        GoRoute(
-          path: '/monitor',
-          builder: (_, __) => const LiveMonitorScreen(),
-        ),
-        GoRoute(
-          path: '/violations',
-          builder: (_, __) => const ViolationsListScreen(),
-        ),
+        GoRoute(path: '/home',      builder: (_, __) => const HomeScreen()),
+        GoRoute(path: '/monitor',   builder: (_, __) => const LiveMonitorScreen()),
+        GoRoute(path: '/violations',builder: (_, __) => const ViolationsListScreen()),
         GoRoute(
           path: '/violations/:id',
           builder: (_, state) => ViolationDetailScreen(
             violationId: state.pathParameters['id']!,
           ),
         ),
-        GoRoute(
-          path: '/score',
-          builder: (_, __) => const DriverScoreScreen(),
-        ),
-        GoRoute(
-          path: '/settings',
-          builder: (_, __) => const SettingsScreen(),
-        ),
+        GoRoute(path: '/score',    builder: (_, __) => const DriverScoreScreen()),
+        GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       ],
     ),
+    // Payment routes (outside shell — no bottom nav)
     GoRoute(
       path: '/payment/method',
       builder: (_, state) => PaymentMethodScreen(
-        // violationId is nullable — PaymentMethodScreen already declares it required.
-        // If the screen only accepts a non-null id, use the null-assert below.
-        // If it accepts null (e.g. for Pay All flow), change the field to String?.
+        violationId: state.uri.queryParameters['id'] ?? '',
+      ),
+    ),
+    GoRoute(
+      path: '/payment/form',
+      builder: (_, state) => PaymentFormScreen(
+        violationId: state.uri.queryParameters['id'] ?? '',
+        method: state.uri.queryParameters['method'] ?? 'card',
+      ),
+    ),
+    GoRoute(
+      path: '/payment/success',
+      builder: (_, state) => PaymentSuccessScreen(
         violationId: state.uri.queryParameters['id'] ?? '',
       ),
     ),
@@ -97,7 +95,8 @@ final _router = GoRouter(
 // ── App root ──────────────────────────────────────────────────────────────────
 
 class NazerApp extends StatelessWidget {
-  const NazerApp({super.key});
+  final ThemeProvider themeProvider;
+  const NazerApp({super.key, required this.themeProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -112,15 +111,20 @@ class NazerApp extends StatelessWidget {
 
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
         ChangeNotifierProvider<DeviceProvider>.value(value: deviceProvider),
         ChangeNotifierProvider<ViolationsProvider>.value(
             value: violationsProvider),
       ],
-      child: MaterialApp.router(
-        title: 'NAZER',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark(),
-        routerConfig: _router,
+      child: Consumer<ThemeProvider>(
+        builder: (_, theme, __) => MaterialApp.router(
+          title: 'NAZER',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: theme.themeMode,
+          routerConfig: _router,
+        ),
       ),
     );
   }
@@ -133,13 +137,11 @@ class _MainShell extends StatelessWidget {
   const _MainShell({required this.child});
 
   static const _tabs = [
-    _Tab('/home', Icons.home_rounded, Icons.home_outlined, 'Home'),
-    _Tab('/monitor', Icons.speed_rounded, Icons.speed_outlined, 'Monitor'),
-    _Tab('/violations', Icons.warning_rounded, Icons.warning_outlined,
-        'Violations'),
-    _Tab('/score', Icons.star_rounded, Icons.star_outlined, 'Score'),
-    _Tab('/settings', Icons.settings_rounded, Icons.settings_outlined,
-        'Settings'),
+    _Tab('/home',       Icons.home_rounded,      Icons.home_outlined,      'Home'),
+    _Tab('/monitor',    Icons.speed_rounded,      Icons.speed_outlined,     'Monitor'),
+    _Tab('/violations', Icons.warning_rounded,    Icons.warning_outlined,   'Violations'),
+    _Tab('/score',      Icons.star_rounded,       Icons.star_outlined,      'Score'),
+    _Tab('/settings',   Icons.settings_rounded,   Icons.settings_outlined,  'Settings'),
   ];
 
   @override
@@ -151,7 +153,7 @@ class _MainShell extends StatelessWidget {
     return Scaffold(
       body: child,
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.bgCard,
           border: Border(top: BorderSide(color: AppColors.border)),
         ),

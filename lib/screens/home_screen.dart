@@ -96,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 24),
 
                         // ── Recent Activity (wired to ViolationsProvider) ──────
-                        _SectionLabel('Recent Activity'),
+                        const _SectionLabel('Recent Activity'),
                         const SizedBox(height: 12),
                         // Consumer keeps this section reactive independently of
                         // the outer DeviceProvider consumer.
@@ -165,9 +165,9 @@ class _StationaryBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Icon(Icons.directions_car, color: AppColors.warning, size: 16),
           SizedBox(width: 6),
           Text(
@@ -306,7 +306,7 @@ class _GpsRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.satellite_alt_rounded,
+          const Icon(Icons.satellite_alt_rounded,
               color: AppColors.info, size: 18),
           const SizedBox(width: 8),
           Text(
@@ -357,11 +357,11 @@ class _RecentActivityList extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border),
         ),
-        child: Row(
+        child: const Row(
           children: [
             Icon(Icons.check_circle_outline_rounded,
                 color: AppColors.success, size: 22),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text(
               'No recent violations',
               style: TextStyle(
@@ -424,7 +424,7 @@ class _ViolationActivityItem extends StatelessWidget {
                 color: AppColors.danger.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.warning_amber_rounded,
+              child: const Icon(Icons.warning_amber_rounded,
                   color: AppColors.danger, size: 20),
             ),
             const SizedBox(width: 12),
@@ -432,9 +432,9 @@ class _ViolationActivityItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Speed Violation',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,

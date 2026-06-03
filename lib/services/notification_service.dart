@@ -65,7 +65,7 @@ class NotificationService {
     final excess = v.excessSpeed.toStringAsFixed(0);
     final fine = v.fineAmount.toStringAsFixed(0);
 
-    final details = NotificationDetails(
+    const details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
         _channelName,
@@ -74,9 +74,9 @@ class NotificationService {
         priority: Priority.high,
         playSound: true,
         icon: '@mipmap/ic_launcher',
-        color: const Color(0xFFEF4444), // danger red
+        color: Color(0xFFEF4444), // danger red
       ),
-      iOS: const DarwinNotificationDetails(
+      iOS: DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
